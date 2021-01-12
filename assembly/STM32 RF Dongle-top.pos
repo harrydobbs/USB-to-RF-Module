@@ -1,0 +1,44 @@
+### Module positions - created on 12/26/20 16:06:20 ###
+### Printed by Pcbnew version kicad (5.1.7)-1
+## Unit = mm, Angle = deg.
+## Side : top
+# Ref     Val            Package                                     PosX       PosY       Rot  Side
+C1        33n            C_0402_1005Metric                       146.9450   -89.6250  180.0000  top
+C2        10u            C_0402_1005Metric                       146.6000   -96.0300  180.0000  top
+C3        1u             C_1206_3216Metric                       135.9700   -87.1600    0.0000  top
+C5        10n            C_0402_1005Metric                       148.8450   -89.6250    0.0000  top
+C6        1n             C_0402_1005Metric                       148.8450   -88.5700    0.0000  top
+C7        1u             C_1206_3216Metric                       134.8700   -93.2300  180.0000  top
+C8        2n2            C_0402_1005Metric                       155.2100   -94.7600    0.0000  top
+C9        12p            C_0402_1005Metric                       145.3450   -99.6750  270.0000  top
+C10       4p7            C_0402_1005Metric                       155.2200   -95.7900    0.0000  top
+C11       1.5p           C_0402_1005Metric                       156.1300   -92.8100    0.0000  top
+C12       12p            C_0402_1005Metric                       150.6450   -97.9750  270.0000  top
+C13       1p             C_0402_1005Metric                       157.6400   -92.3700   90.0000  top
+C15       1u             C_0402_1005Metric                       142.0800   -86.6300   90.0000  top
+C16       100n           C_0402_1005Metric                       140.6000   -87.9300  180.0000  top
+C17       100n           C_0402_1005Metric                       139.1100   -95.4300  180.0000  top
+C18       100n           C_0402_1005Metric                       143.0700   -87.5950   90.0000  top
+C19       100n           C_0402_1005Metric                       136.5800  -100.2800  270.0000  top
+D1        GR             LED_0603_1608Metric                     128.7700  -100.8800   90.0000  top
+D2        YE             LED_0603_1608Metric                     130.3800  -100.8900   90.0000  top
+D3        BL             LED_0603_1608Metric                     127.0700  -100.8700   90.0000  top
+F1        200mA          Fuse_1206_3216Metric                    128.5500   -87.1750    0.0000  top
+FB1       100_@_100MHz   Fuse_1206_3216Metric                    132.5000   -88.2700   90.0000  top
+J1        USB_B_Micro    USB_Micro-B_Molex-105017-0001           128.4100   -93.6500  270.0000  top
+J2        SMA            SMA_Samtec_SMA-J-P-X-ST-EM1_EdgeMount   160.7750   -93.6250   90.0000  top
+L1        8.2n           L_0402_1005Metric                       152.6800   -93.2500  270.0000  top
+L2        3.9n           L_0402_1005Metric                       154.1950   -92.8000    0.0000  top
+L3        2.7n           L_0402_1005Metric                       153.7300   -94.2850  270.0000  top
+R1        2k2            R_0402_1005Metric                       150.3950   -89.1150   90.0000  top
+R2        1M             R_0402_1005Metric                       149.8800   -96.0700    0.0000  top
+R3        10k            R_0402_1005Metric                       145.1000   -89.8500   90.0000  top
+R4        2k2            R_0603_1608Metric                       133.0250  -100.2250  180.0000  top
+R5        2k2            R_0603_1608Metric                       133.0250   -98.7250  180.0000  top
+R6        2k2            R_0603_1608Metric                       133.0250  -101.6750    0.0000  top
+U1        NRF24L01       QFN-20-1EP_4x4mm_P0.5mm_EP2.5x2.5mm     148.4426   -92.8147    0.0000  top
+U2        XC6206P332MR   SOT-23                                  135.4250   -90.2500   90.0000  top
+U3        USBLC6-2SC6    SOT-23-6                                134.2000   -96.2500    0.0000  top
+U4        STM32L432KBUx  QFN-32-1EP_5x5mm_P0.5mm_EP3.45x3.45mm   141.3300   -91.7400  270.0000  top
+Y1        16MHz          Crystal_SMD_3225-4Pin_3.2x2.5mm         147.9700   -98.3250    0.0000  top
+## End
