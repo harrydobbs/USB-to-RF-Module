@@ -437,6 +437,11 @@
       (scale (xyz 1 1 1))
       (rotate (xyz 0 0 0))
     )
+    (model "C:/Users/User/Downloads/micro-usb-b-female-5pin-smd-1.snapshot.2/Micro USB-B Female 5Pin SMD.STEP"
+      (offset (xyz 0 1.5 0.5))
+      (scale (xyz 1 1 1))
+      (rotate (xyz -90 0 0))
+    )
   )
 
   (module Package_DFN_QFN:QFN-20-1EP_4x4mm_P0.5mm_EP2.5x2.5mm (layer F.Cu) (tedit 5DC5F6A3) (tstamp 5FE0CA7F)

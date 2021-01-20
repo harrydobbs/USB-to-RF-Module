@@ -264,6 +264,15 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   /* USER CODE BEGIN 6 */
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+  if(Buf[0] == 1)
+  {
+ 		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
+  }
+  else if(Buf[0] == 0)
+  {
+		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,0);
+
+  }
   return (USBD_OK);
   /* USER CODE END 6 */
 }

@@ -1,0 +1,8 @@
+nrf24.c:63:9:NRF24_read_register	24	static
+nrf24.c:75:9:NRF24_write_register	24	static
+nrf24.c:11:6:NRF24_Init	8	static
+nrf24.c:101:6:NRF24_CMD	24	static
+nrf24.c:31:6:NRF24_TX_Init	8	static
+nrf24.c:45:6:NRF24_RX_Init	8	static
+nrf24.c:111:6:NRF24_RF_TX	24	static
+nrf24.c:135:6:NRF24_RF_RX	32	static

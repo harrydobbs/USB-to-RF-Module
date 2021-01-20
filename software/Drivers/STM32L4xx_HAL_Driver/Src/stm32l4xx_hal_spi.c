@@ -1824,7 +1824,7 @@ error :
 }
 
 /**
-  * @brief  Transmit an amount of data in non-blocking mode with DMA.
+  * @brief   an amount of data in non-blocking mode with DMA.
   * @param  hspi pointer to a SPI_HandleTypeDef structure that contains
   *               the configuration information for SPI module.
   * @param  pData pointer to data buffer

@@ -16,7 +16,7 @@ ____/ /_  /   _  /  / / ____/ /_  __/      / /_/ / ____/ /_  /_/ /_/_____/  _, _
 
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <spi.h>
+#include <nrf24_legacy.h>
 #include "main.h"
 #include "usb_device.h"
 
@@ -40,7 +40,8 @@ ____/ /_  /   _  /  / / ____/ /_  __/      / /_/ / ____/ /_  /_/ /_/_____/  _, _
 
 /* USER CODE END PM */
 
-
+/* Private variables ---------------------------------------------------------*/
+SPI_HandleTypeDef hspi3;
 
 /* USER CODE BEGIN PV */
 
@@ -49,6 +50,7 @@ ____/ /_  /   _  /  / / ____/ /_  __/      / /_/ / ____/ /_  /_/ /_/_____/  _, _
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_SPI3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -86,9 +88,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  SPI3_Init();
+  MX_SPI3_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
+
+  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+
   char txBuffer[8];
   char rxBuffer[8];
   uint8_t count = 0;
@@ -106,13 +111,26 @@ int main(void)
 	sprintf(txBuffer,"%u\r\n",count);
 	if(CDC_Transmit_FS((uint8_t *) txBuffer,strlen(txBuffer)) == 1)
 	{
-   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
+   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
    	}
    	else
    	{
-   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
    	}
-    HAL_Delay(500);
+	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+
+    HAL_Delay(20);
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+    HAL_Delay(100);
+
+	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_6,1);
+	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_7,1);
+
+
+
+
+
+
   }
 
   /* USER CODE END 3 */
@@ -185,6 +203,40 @@ void SystemClock_Config(void)
   * @param None
   * @retval None
   */
+static void MX_SPI3_Init(void)
+{
+
+  /* USER CODE BEGIN SPI3_Init 0 */
+
+  /* USER CODE END SPI3_Init 0 */
+
+  /* USER CODE BEGIN SPI3_Init 1 */
+
+  /* USER CODE END SPI3_Init 1 */
+  /* SPI3 parameter configuration*/
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_5BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 7;
+  hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI3_Init 2 */
+
+  /* USER CODE END SPI3_Init 2 */
+
+}
 
 /**
   * @brief GPIO Initialization Function

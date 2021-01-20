@@ -31,4 +31,11 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>radio</name>
+			<type>2</type>
+			<location>C:/Users/User/Documents/Personal Projects/STM32 RF Dongle/software/libraries/nrf24l01</location>
+		</link>
+	</linkedResources>
 </projectDescription>

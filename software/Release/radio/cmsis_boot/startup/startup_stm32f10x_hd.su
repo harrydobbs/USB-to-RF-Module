@@ -1,0 +1,2 @@
+startup_stm32f10x_hd.c:334:13:Default_Handler	0	static
+startup_stm32f10x_hd.c:218:6:Default_Reset_Handler	8	static,ignoring_inline_asm
