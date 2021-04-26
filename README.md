@@ -8,3 +8,6 @@ This repository features a custom 3D printed case, firmware and drivers aswell a
 
 ## Assembled Module
 ![](https://github.com/harry1576/USB-to-RF-Module/blob/master/images/assembled.jpg)
+
+## 3D Printed Case
+![](https://github.com/harry1576/USB-to-RF-Module/blob/master/images/3d-case.png)
