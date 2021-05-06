@@ -1,5 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
+# Toolchain: GNU Tools for STM32 (9-2020-q2-update)
 ################################################################################
 
 -include ../makefile.init
@@ -32,52 +33,55 @@ endif
 
 -include ../makefile.defs
 
-BUILD_ARTIFACT_NAME := STM RF Dongle
+OPTIONAL_TOOL_DEPS := \
+$(wildcard ../makefile.defs) \
+$(wildcard ../makefile.init) \
+$(wildcard ../makefile.targets) \
+
+
+BUILD_ARTIFACT_NAME := STM-RF-Dongle
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX := 
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME).$(BUILD_ARTIFACT_EXTENSION)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-STM\ RF\ Dongle.elf \
+STM-RF-Dongle.elf \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-STM\ RF\ Dongle.list \
+STM-RF-Dongle.list \
 
 OBJCOPY_BIN += \
-STM\ RF\ Dongle.bin \
+STM-RF-Dongle.bin \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: STM\ RF\ Dongle.elf secondary-outputs
-
-dependents:
-	-cd C:/Users/User/Documents/Personal\ Projects/STM32\ RF\ Dongle/software/Release && $(MAKE) all
+main-build: STM-RF-Dongle.elf secondary-outputs
 
 # Tool invocations
-STM\ RF\ Dongle.elf: $(OBJS) $(USER_OBJS) C:/Users/User/Documents/Personal\ Projects/STM32\ RF\ Dongle/software/Release/STM\ RF\ Dongle.elf C:\Users\User\Documents\Personal\ Projects\STM32\ RF\ Dongle\software\STM32L432KBUX_FLASH.ld
-	arm-none-eabi-gcc -o "STM RF Dongle.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\User\Documents\Personal Projects\STM32 RF Dongle\software\STM32L432KBUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STM RF Dongle.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+STM-RF-Dongle.elf: $(OBJS) $(USER_OBJS) /home/harry/Projects/USB-to-RF-Module/software/STM32L432KBUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "STM-RF-Dongle.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/harry/Projects/USB-to-RF-Module/software/STM32L432KBUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STM-RF-Dongle.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
-default.size.stdout: $(EXECUTABLES)
+default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	arm-none-eabi-size  $(EXECUTABLES)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-STM\ RF\ Dongle.list: $(EXECUTABLES)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "STM RF Dongle.list"
+STM-RF-Dongle.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "STM-RF-Dongle.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-STM\ RF\ Dongle.bin: $(EXECUTABLES)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "STM RF Dongle.bin"
+STM-RF-Dongle.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "STM-RF-Dongle.bin"
 	@echo 'Finished building: $@'
 	@echo ' '
 
@@ -97,6 +101,5 @@ warn-no-linker-script-specified:
 
 .PHONY: all clean dependents fail-specified-linker-script-missing warn-no-linker-script-specified
 .SECONDARY:
-C:/Users/User/Documents/Personal\ Projects/STM32\ RF\ Dongle/software/Release/STM\ RF\ Dongle.elf:
 
 -include ../makefile.targets

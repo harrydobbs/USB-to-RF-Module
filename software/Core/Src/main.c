@@ -41,10 +41,11 @@ ____/ /_  /   _  /  / / ____/ /_  __/      / /_/ / ____/ /_  /_/ /_/_____/  _, _
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-SPI_HandleTypeDef hspi3;
 
 /* USER CODE BEGIN PV */
-
+SPI_HandleTypeDef hspi3;
+char rxBuffer[64];
+char txBuffer[64];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,8 +95,7 @@ int main(void)
 
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
 
-  char txBuffer[8];
-  char rxBuffer[8];
+
   uint8_t count = 0;
 
   /* USER CODE END 2 */
@@ -119,9 +119,9 @@ int main(void)
    	}
 	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
 
-    HAL_Delay(20);
-	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
-    HAL_Delay(100);
+    //HAL_Delay(20);
+	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+    HAL_Delay(500);
 
 	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_6,1);
 	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_7,1);
