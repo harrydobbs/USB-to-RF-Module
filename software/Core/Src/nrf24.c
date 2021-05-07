@@ -218,9 +218,9 @@ void NRF24_TxMode (uint8_t *Address, uint8_t channel)
 
 
 	// power up the device
-	uint8_t config = nrf24_ReadReg(CONFIG);
-//	config = config | (1<<1);   // write 1 in the PWR_UP bit
-	config = config & (0xF2);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
+	//uint8_t config = nrf24_ReadReg(CONFIG);
+	//	config = config | (1<<1);   // write 1 in the PWR_UP bit
+	uint8_t config = (0xF2);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
 	nrf24_WriteReg (CONFIG, config);
 
 	// Enable the chip after configuring the device
@@ -373,5 +373,3 @@ void NRF24_ReadAll (uint8_t *data)
 	}
 
 }
-
-
