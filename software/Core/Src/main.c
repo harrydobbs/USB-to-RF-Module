@@ -24,6 +24,7 @@ ____/ /_  /   _  /  / / ____/ /_  __/      / /_/ / ____/ /_  /_/ /_/_____/  _, _
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
 #include "spi.h"
+#include "nrf24.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,11 +50,10 @@ char txBuffer[64];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+/* USER CODE BEGIN PFP */
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI3_Init(void);
-/* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -92,11 +92,19 @@ int main(void)
   MX_SPI3_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-
+  NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_7, hspi3);
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
-
-
+  uint64_t txPipeAddress = 0x11223344AA;
   uint8_t count = 0;
+  char myTxData[32] = "Hello World!";
+
+
+  NRF24_stopListening();
+  NRF24_openWritingPipe(txPipeAddress);
+  NRF24_setAutoAck(false);
+  NRF24_setChannel(52);
+  NRF24_setPayloadSize(32);
+
 
   /* USER CODE END 2 */
 
@@ -107,16 +115,39 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	count += 1;
-	sprintf(txBuffer,"%u\r\n",count);
-	if(CDC_Transmit_FS((uint8_t *) txBuffer,strlen(txBuffer)) == 1)
+
+
+	if(NRF24_write(myTxData,32) == 1)
 	{
-   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
-   	}
-   	else
-   	{
-   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
-   	}
+		count = 1;
+		sprintf(txBuffer,"%u\r\n",count);
+
+		if(CDC_Transmit_FS((uint8_t *) txBuffer,strlen(txBuffer)) == 1)
+		{
+	   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+	   	}
+	   	else
+	   	{
+	   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
+	   	}
+	}
+	else
+	{
+		count = 2;
+		sprintf(txBuffer,"%u\r\n",count);
+
+		if(CDC_Transmit_FS((uint8_t *) txBuffer,strlen(txBuffer)) == 1)
+		{
+	   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+	   	}
+	   	else
+	   	{
+	   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
+	   	}
+	}
+
+
+
 	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
 
     //HAL_Delay(20);
@@ -125,12 +156,6 @@ int main(void)
 
 	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_6,1);
 	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_7,1);
-
-
-
-
-
-
   }
 
   /* USER CODE END 3 */

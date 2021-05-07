@@ -1,186 +1,176 @@
-#include  <stdint.h>
+/*
+Library:					NRF24L01/NRF24L01+
+Written by:				Mohamed Yaqoob (MYaqoobEmbedded YouTube Channel)
+Date Written:			10/11/2018
+Last modified:		-/-
+Description:			This is an STM32 device driver library for the NRF24L01 Nordic Radio transceiver, using STM HAL libraries
+References:				This library was written based on the Arduino NRF24 Open-Source library by J. Coliz and the NRF24 datasheet
+										- https://github.com/maniacbug/RF24
+										- https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf
+
+* Copyright (C) 2018 - M. Yaqoob
+   This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
+   of the GNU General Public Licenseversion 3 as published by the Free Software Foundation.
+
+   This software library is shared with puplic for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
+   or indirectly by this software, read more about this on the GNU General Public License.
+*/
+
+//List of header files
+#include "stm32l4xx_hal.h"
+#include "nRF24L01.h"
+#include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+//1. Pinout Ports and Pin
+#define nrf_CSN_PORT		GPIOB
+#define nrf_CSN_PIN			GPIO_PIN_6
 
+#define nrf_CE_PORT			GPIOB
+#define nrf_CE_PIN			GPIO_PIN_7
 
-// CE (chip enable) pin (PB11)
-#define nRF24_CE_PORT              GPIOB
-#define nRF24_CE_PIN               GPIO_PIN_7
-#define nRF24_CE_L()                 HAL_GPIO_WritePin(nRF24_CE_PORT,nRF24_CE_PIN,0)
-#define nRF24_CE_H()                 HAL_GPIO_WritePin(nRF24_CE_PORT,nRF24_CE_PIN,1)
+//**** TypeDefs ****//
+//1. Power Amplifier function, NRF24_setPALevel()
+typedef enum {
+	RF24_PA_m18dB = 0,
+	RF24_PA_m12dB,
+	RF24_PA_m6dB,
+	RF24_PA_0dB,
+	RF24_PA_ERROR
+}rf24_pa_dbm_e ;
+//2. NRF24_setDataRate() input
+typedef enum {
+	RF24_1MBPS = 0,
+	RF24_2MBPS,
+	RF24_250KBPS
+}rf24_datarate_e;
+//3. NRF24_setCRCLength() input
+typedef enum {
+	RF24_CRC_DISABLED = 0,
+	RF24_CRC_8,
+	RF24_CRC_16
+}rf24_crclength_e;
+//4. Pipe address registers
+static const uint8_t NRF24_ADDR_REGS[7] = {
+		REG_RX_ADDR_P0,
+		REG_RX_ADDR_P1,
+		REG_RX_ADDR_P2,
+		REG_RX_ADDR_P3,
+		REG_RX_ADDR_P4,
+		REG_RX_ADDR_P5,
+		REG_TX_ADDR
+};
+//5. RX_PW_Px registers addresses
+static const uint8_t RF24_RX_PW_PIPE[6] = {
+		REG_RX_PW_P0,
+		REG_RX_PW_P1,
+		REG_RX_PW_P2,
+		REG_RX_PW_P3,
+		REG_RX_PW_P4,
+		REG_RX_PW_P5
+};
+//**** Functions prototypes ****//
+//Microsecond delay function
+void NRF24_DelayMicroSeconds(uint32_t uSec);
 
-// CSN (chip select negative) pin (PB12)
-#define nRF24_CSN_PORT             GPIOB
-#define nRF24_CSN_PIN              GPIO_PIN_6
-#define nRF24_CSN_L()                HAL_GPIO_WritePin(nRF24_CSN_PORT,nRF24_CSN_PIN,0)
-#define nRF24_CSN_H()                HAL_GPIO_WritePin(nRF24_CSN_PORT,nRF24_CSN_PIN,1)
+//1. Chip Select function
+void NRF24_csn(int mode);
+//2. Chip Enable
+void NRF24_ce(int level);
+//3. Read single byte from a register
+uint8_t NRF24_read_register(uint8_t reg);
+//4. Read multiple bytes register
+void NRF24_read_registerN(uint8_t reg, uint8_t *buf, uint8_t len);
+//5. Write single byte register
+void NRF24_write_register(uint8_t reg, uint8_t value);
+//6. Write multipl bytes register
+void NRF24_write_registerN(uint8_t reg, const uint8_t* buf, uint8_t len);
+//7. Write transmit payload
+void NRF24_write_payload(const void* buf, uint8_t len);
+//8. Read receive payload
+void NRF24_read_payload(void* buf, uint8_t len);
+//9. Flush Tx buffer
+void NRF24_flush_tx(void);
+//10. Flush Rx buffer
+void NRF24_flush_rx(void);
+//11. Get status register value
+uint8_t NRF24_get_status(void);
 
-// Register Address Configuration
-#define CONFIG         	0x00 //!<Configuration Register
-#define EN_AA         	0x01 //!<Enable 'Auto Acknowledgement' function; disable this functionality to be compatible with nRF24L01 (see page 72 of reference manual)
-#define EN_RXADDR     	0x02 //!<Enabled RX Adresses
-#define SETUP_AW     	0x03 //!<Setup of Adress Widths (common for all data pipes)
-#define SETUP_RETR    	0x04 //!<Setup of Automatic Retransmission
-#define RF_CH         	0x05 //!<RF Channel
-#define RF_SETUP     	0x06 //!<RF Setup Register
-#define STATUS1         	0x07 //!<Status Register (in parallel to the SPI command word applied on the MOSI pin, the STATUS register is shifted serially out on the MISO pin)
-#define OBSERVE_TX     	0x08 //!<Transmit observe register
-#define RPD         	0x09 //!<Received Power Detector
-#define RX_ADDR_P0    	0x0A //!<Receive address data pipe 0; 5 bytes maximum length (LSByte is written first. Write the number of bytes defined by SETUP_AW)
-#define RX_ADDR_P1    	0x0B //!<Receive address data pipe 1; 5 bytes maximum length (LSByte is written first. Write the number of bytes defined by SETUP_AW)
-#define RX_ADDR_P2    	0x0C //!<Receive address data pipe 2; only LSByte. MSBytes are equal to RX_ADDR_P1[39:8]
-#define RX_ADDR_P3    	0x0D //!<Receive address data pipe 3; only LSByte. MSBytes are equal to RX_ADDR_P1[39:8]
-#define RX_ADDR_P4     	0x0E //!<Receive address data pipe 4; only LSByte. MSBytes are equal to RX_ADDR_P1[39:8]
-#define RX_ADDR_P5     	0x0F //!<Receive address data pipe 5; only LSByte. MSBytes are equal to RX_ADDR_P1[39:8]
-#define TX_ADDR     	0x10 //!<Transmit address; used for PTX device only (LSByte is written first); set RX_ADDR_P0 equal to this address to handle automatic acknowledge if this is a PTX device with Enhanced Shockburst enabled (see page 72 of reference manual)
-#define RX_PW_P0     	0x11 //!<Number of bytes in RX Payload in data pipe 0 (1-32)
-#define RX_PW_P1     	0x12 //!<Number of bytes in RX Payload in data pipe 1 (1-32)
-#define RX_PW_P2     	0x13 //!<Number of bytes in RX Payload in data pipe 2 (1-32)
-#define RX_PW_P3     	0x14 //!<Number of bytes in RX Payload in data pipe 3 (1-32)
-#define RX_PW_P4     	0x15 //!<Number of bytes in RX Payload in data pipe 4 (1-32)
-#define RX_PW_P5     	0x16 //!<Number of bytes in RX Payload in data pipe 5 (1-32)
-#define FIFO_STATUS    	0x17 //!<FIFO Status Register
+//12. Begin function
+void NRF24_begin(GPIO_TypeDef *nrf24PORT, uint16_t nrfCSN_Pin, uint16_t nrfCE_Pin, SPI_HandleTypeDef nrfSPI);
+//13. Listen on open pipes for reading (Must call NRF24_openReadingPipe() first)
+void NRF24_startListening(void);
+//14. Stop listening (essential before any write operation)
+void NRF24_stopListening(void);
 
-//Command Configuration
-#define R_REGISTER        	0x00 //!<Read from register (1-5 bytes (LSByte first, from MSB to LSB)); use (R_REGISTER | register_address) to read data from the specific register;
-#define W_REGISTER        	0x20 //!<Write to register (1-5 bytes (LSByte first, from MSB to LSB)); use (W_REGISTER | register_address) to write data to the specific register; executable in power down or standby modes only
-#define R_RX_PAYLOAD    	0x61 //!<Read RX Payload (1-32 bytes); a read operation always starts at byte 0. Payload is deleted from the RX FIFO after it is read; used in RX mode
-#define W_TX_PAYLOAD    	0xA0 //!<Write TX Payload (1-32 bytes); a write operation always starts at byte 0 used in TX Payload
-#define FLUSH_TX        	0xE1 //!<Flush TX FIFO (0 bytes); used in TX mode
-#define FLUSH_RX        	0xE2 //!<Flush RX FIFO (0 bytes); used in RX mode; should not be executed during transmission of acknowledge (ACK packet will not be completed)
-#define REUSE_TX_PL        	0xE3 //!<Reuse last transmitted payload (0 bytes); TX Payload Reuse is active until W_TX_PAYLOAD or FLUSH_TX is executed; TX Payload Reuse must not be activated or deactivated during package transmission; used for a PTX device
-#define R_RX_PL_WID        	0x60 //!<Read RX Payload width for the top R_RX_PAYLOAD in the RX FIFO (1 byte)
-#define W_ACK_PAYLOAD    	0xA8 //!<Write payload to be transmitted together with ACK packet on the specific data pipe (1-32 bytes (LSByte first)); use (W_ACK_PAYLOAD | pipe_number) to store ACK payload for the specific data pipe; maximum 3 ACK payloads can be pending. Payloads with the same pipe_number are handled using FIFO principle;
-#define W_TX_PAYLOAD_NOACK	0xB0 //!<Disable AUTO_ACK on this specific packet (1-32 bytes (LSByte first)); used in TX mode
-#define NOP                	0xFF //!<No Operation (0 bytes); might be used to read the STATUS register
-
-
-	/* config */
-#define MASK_RX_DR 	(1<<6) //!<Mask interrupt caused by RX_DR; '1': Interrupt not reflected on the IRQ pin, '0': Reflect RX_DR as active low interrupt on the IRQ pin
-#define MASK_TX_DS 	(1<<5) //!<Mask interrupt caused by TX_DS; '1': Interrupt not reflected on the IRQ pin, '0': Reflect TX_DS as active low interrupt on the IRQ pin
-#define MASK_MAX_RT	(1<<4) //!<Mask interrupt called by MAX_RT; '1': Interrupt not reflected on the IRQ pin, '0': Reflect MAX_RT as active low interrupt on the IRQ pin
-#define EN_CRC         	(1<<3) //!<Enable CRC; forced high if one of the bits in the EN_AA is high
-#define CRC0             	(1<<2) //!<CRC encoding scheme; '1': 2 bytes, '0': 1 byte
-#define PWR_UP         	(1<<1) //!<'1': power up, '0': power down
-#define PRIM_RX     	(1<<0) //!<RX/TX control; '1': PRX, '0': PTX
-#define REGISTER_MASK   0x1F
-
-
-	/* EN_AA */
-#define ENAA_P5     	(1<<5) //!<Enable auto acknowledgement data pipe 5
-#define ENAA_P4     	(1<<4) //!<Enable auto acknowledgement data pipe 4
-#define ENAA_P3     	(1<<3) //!<Enable auto acknowledgement data pipe 3
-#define ENAA_P2     	(1<<2) //!<Enable auto acknowledgement data pipe 2
-#define ENAA_P1     	(1<<1) //!<Enable auto acknowledgement data pipe 1
-#define ENAA_P0        	(1<<0) //!<Enable auto acknowledgement data pipe 0
-
-	/* EN_RXADDR */
-#define ERX_P5         	(1<<5) //!<Enable data pipe 5
-#define ERX_P4         	(1<<4) //!<Enable data pipe 4
-#define ERX_P3         	(1<<3) //!<Enable data pipe 3
-#define ERX_P2         	(1<<2) //!<Enable data pipe 2
-#define ERX_P1         	(1<<1) //!<Enable data pipe 1
-#define ERX_P0         	(1<<0) //!<Enable data pipe 0
-
-	/* SETUP_AW */
-#define AW(x)            	((x)<<0) //!<//bits 1:0// RX/TX Address field width; '11': 5 bytes, '10': 4 bytes, '01': 3 bytes, '00': illegal; LSByte is used if address width is below 5 bytes
-
-	/* SETUP_RETR */
-#define ARD(x)        	((x)<<4) //!<//bits 7:4// Automatic Retransmission Delay; '1111': Wait 4000us, '1110': Wait 3750us, ... '0001': Wait 500us, '0000': Wait 250us; delay defined from the end of the transmission to the start of the next transmission
-                                            	/*!
-                                            	* Please take care when setting this parameter. If the ACK Payload is more than 15 bytes in 2Mbps or 5 bytes in 1Mbps, the ARD must be 500us or more. In 250Kbps (even if there is no ACK Payload) the ARD must be 500us or more
-                                            	*/
-#define ARC(x)        	((x)<<0) //!<//bits 3:0// Auto Retransmit Count; '1111': Up to 15 retransmits on fail of AA, '1110': Up to 14 retransmits on fail of AA, ... '0001': Up to 1 retransmit on fail of AA, '0000': Retransmits disabled
-
-	/* RF_CH */
-#define RF_CH_MASK(x)	((x)<<0) //!<//bits 6:0// Sets the frequency channel nRF24L01+ operates on (2.400GHz - 2.525GHz); default = 2 (2.4GHz (?))
-
-	/* RF_SETUP */
-#define CONT_WAVE    	(1<<7) //!<Enables continuous carrier transmit when high
-#define RF_DR_LOW    	(1<<5) //!<Set RF Data Rate to 250Kbps (see RF_DR_HIGH for encoding)
-#define PLL_LOCK    	(1<<4) //!<Force PLL lock signal; only used in test
-#define RF_DR_HIGH	(1<<3) //!<Select between the high speed Data Rates; this bit does not matter if RF_DR_LOW is high; encoding [RF_DR_HIGH:RF_DR_LOW]: '11': Reserved, '10': 2Mbps, '01': 250Kbps, '00': 1Mbps
-#define RF_PWR(x)    	((x)<<1) //!<//bits 2:1// Set RF output power in TX mode; '11': 0dBm, '10': -6dBm, '01': -12dBm, '00': -18dBm
-
-	/* STATUS */
-#define RX_DR            	(1<<6) //!<Data Ready RX FIFO interrupt; asserted when new data arrives RX FIFO; write '1' to clear bit
-#define TX_DS            	(1<<5) //!<Data Sent TX FIFO interrupt; asserted when packet transmitted on TX. If AUTO_ACK is activated, this bit is set high only when ACK is received; write '1' to clear bit
-#define MAX_RT        	(1<<4) //!<Maximum number of TX retransmits interrupt; if MAX_RT is asserted, it must be cleared to enable further communication; write '1' to clear bit
-#define RX_P_NO(x)	((x)<<1) //!<//bits 3:1// Data pipe number for the payload available for reading from RX_FIFO; '111': RX FIFO Empty, '110': Not used, '101'-'000': Data pipe number
-#define TX_FULL        	(1<<0) //!<TX FIFO Full flag; '1': TX FIFO full, '0': Available locations in TX FIFO
-
-  /* RX_PW_P0-5 */
-#define RX_PW(x)     	((x)<<0) //!<//bits 5:0// Number of bytes in RX Payload in data pipe 0-5; 0: Pipe not used, 1-32: 1-32 bytes
-
-
-	/* FEATURE */
-#define EN_DPL        	(1<<2) //!<Enable Dynamic Payload Length
-#define EN_ACK_PAY    	(1<<1) //!<Enable ACK Payload
-                             	/*!<
-                              	* If ACK packet payload is activated, ACK packets have dynamic payload length and Dynamic Payload Length feature should be enabled for data pipe 0 on the PTX and PRX devices (EN_DPL,ENAA_P0,DPL_P0). This is to ensure that they receive ACK packets with payloads. Also set the correct ARD value
-                              	*/
-#define EN_DYN_ACK    	(1<<0) //!<Enable W_TX_PAYLOAD_NOACK command
-
-
-#define RX_DR_SET      0x40
-#define RX_DR_MASK     0xBF
-
-
-#define 	EN_DPL  0x4
-#define 	EN_DPL_MASK  0xFB
-
-#define 	EN_DPL_P0  1
-#define 	EN_DPL_P0_MASK  0xFE
-
-#define 	RX_DR_SET  0x40
-#define 	RX_DR_MASK  0xBF
-
-#define 	MAX_RT_SET  0x10
-#define 	MAX_RT_MASK  0xEF
-
-#define 	TX_DS_SET  0x20
-#define 	TX_DS_MSAK  0xDF
-
-#define 	ADR_4000  0xF0
-#define 	ADR_MASK  0x0F
-
-
-#define 	RF_PWR_18db  0x00
-#define 	RF_PWR_MASK  0xF9
-
-#define 	RF_DR_LOW  0x20
-#define 	RF_DR_MASK  0xD7
-
-#define 	ARD_750us  0x20
-#define 	ARD_MASK  0x0F
-
-// Setup regiesters
-#define     POWER_UP 0x02
-#define 	POWER_DOWN 0x00
-#define 	POWER_MASK 0xfd
-
-#define 	PRIM_RX 1
-#define 	PRIM_TX 0
-#define 	PRIM_RX_MASK 0xFE
-
-#define	    NRF_CONFIG  0x00
-#define	    NRF_SETUP   0x06
-#define 	NRF_RXADDR  0x0
-#define  	NRF_SETUP_AW  0x03
-#define		NRF_SETUP_RETR  0x04
-#define		NRF_RF_CH  0x05
-#define 	NRF_STATUS  0x07
-#define     NRF_OBSERVE_TX  0x08
-#define		NRF_RPD = 0x09
-#define 	NRF_FEATURE  0x1D
-#define 	NRF_DYNPD  0x1C
-
-
-void RF_INITtx(void);
-uint8_t NRF24_write_register(uint8_t reg_add, uint8_t new_value, uint8_t mask);
-void NRF24_CMD(uint8_t cmd);
-void NRF24_TX_Init();
-
-
-
+//15. Write(Transmit data), returns true if successfully sent
+bool NRF24_write( const void* buf, uint8_t len );
+//16. Check for available data to read
+bool NRF24_available(void);
+//17. Read received data
+bool NRF24_read( void* buf, uint8_t len );
+//18. Open Tx pipe for writing (Cannot perform this while Listenning, has to call NRF24_stopListening)
+void NRF24_openWritingPipe(uint64_t address);
+//19. Open reading pipe
+void NRF24_openReadingPipe(uint8_t number, uint64_t address);
+//20 set transmit retries (rf24_Retries_e) and delay
+void NRF24_setRetries(uint8_t delay, uint8_t count);
+//21. Set RF channel frequency
+void NRF24_setChannel(uint8_t channel);
+//22. Set payload size
+void NRF24_setPayloadSize(uint8_t size);
+//23. Get payload size
+uint8_t NRF24_getPayloadSize(void);
+//24. Get dynamic payload size, of latest packet received
+uint8_t NRF24_getDynamicPayloadSize(void);
+//25. Enable payload on Ackknowledge packet
+void NRF24_enableAckPayload(void);
+//26. Enable dynamic payloads
+void NRF24_enableDynamicPayloads(void);
+void NRF24_disableDynamicPayloads(void);
+//27. Check if module is NRF24L01+ or normal module
+bool NRF24_isNRF_Plus(void) ;
+//28. Set Auto Ack for all
+void NRF24_setAutoAck(bool enable);
+//29. Set Auto Ack for certain pipe
+void NRF24_setAutoAckPipe( uint8_t pipe, bool enable ) ;
+//30. Set transmit power level
+void NRF24_setPALevel( rf24_pa_dbm_e level ) ;
+//31. Get transmit power level
+rf24_pa_dbm_e NRF24_getPALevel( void ) ;
+//32. Set data rate (250 Kbps, 1Mbps, 2Mbps)
+bool NRF24_setDataRate(rf24_datarate_e speed);
+//33. Get data rate
+rf24_datarate_e NRF24_getDataRate( void );
+//34. Set crc length (disable, 8-bits or 16-bits)
+void NRF24_setCRCLength(rf24_crclength_e length);
+//35. Get CRC length
+rf24_crclength_e NRF24_getCRCLength(void);
+//36. Disable CRC
+void NRF24_disableCRC( void ) ;
+//37. power up
+void NRF24_powerUp(void) ;
+//38. power down
+void NRF24_powerDown(void);
+//39. Check if data are available and on which pipe (Use this for multiple rx pipes)
+bool NRF24_availablePipe(uint8_t* pipe_num);
+//40. Start write (for IRQ mode)
+void NRF24_startWrite( const void* buf, uint8_t len );
+//41. Write acknowledge payload
+void NRF24_writeAckPayload(uint8_t pipe, const void* buf, uint8_t len);
+//42. Check if an Ack payload is available
+bool NRF24_isAckPayloadAvailable(void);
+//43. Check interrupt flags
+void NRF24_whatHappened(bool *tx_ok,bool *tx_fail,bool *rx_ready);
+//44. Test if there is a carrier on the previous listenning period (useful to check for intereference)
+bool NRF24_testCarrier(void);
+//45. Test if a signal carrier exists (=> -64dB), only for NRF24L01+
+bool NRF24_testRPD(void) ;
+//46. Reset Status
+void NRF24_resetStatus(void);
+//47. ACTIVATE cmd
+void NRF24_ACTIVATE_cmd(void);
+//48. Get AckPayload Size
+uint8_t NRF24_GetAckPayloadSize(void);
 
 

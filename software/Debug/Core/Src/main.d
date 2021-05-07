@@ -40,7 +40,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/nrf24_legacy.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_core.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ctlreq.h \
- ../Core/Inc/spi.h
+ ../Core/Inc/spi.h ../Core/Inc/nrf24.h ../Core/Inc/nRF24L01.h
 
 ../Core/Inc/nrf24_legacy.h:
 
@@ -133,3 +133,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/nrf24_legacy.h \
 ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ctlreq.h:
 
 ../Core/Inc/spi.h:
+
+../Core/Inc/nrf24.h:
+
+../Core/Inc/nRF24L01.h:
