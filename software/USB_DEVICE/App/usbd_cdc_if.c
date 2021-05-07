@@ -24,6 +24,7 @@
 
 /* USER CODE BEGIN INCLUDE */
 extern char rxBuffer[64];
+uint8_t buffer_pos = 0;
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -261,13 +262,17 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
+  uint32_t i;
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
- //https://stackoverflow.com/questions/59981536/stm32-usb-receive-more-than-1-byte
-  memset (rxBuffer, '\0', 64);  // clear the buffer
-  uint8_t len = (uint8_t)*Len;
-  memcpy(rxBuffer, Buf, 64);  // copy the data to the buffer
-  memset(Buf, '\0', len);   // clear the Buf also
+
+
+  for(i=0;i<*Len;i++){
+	  rxBuffer[i] = Buf[i];
+  }
+
+  //CDC_Transmit_FS((uint8_t *) rxBuffer,strlen(rxBuffer));
+
 
   return (USBD_OK);
   /* USER CODE END 6 */
