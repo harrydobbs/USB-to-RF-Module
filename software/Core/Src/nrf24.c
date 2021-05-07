@@ -1,725 +1,377 @@
 /*
-Library:					NRF24L01/NRF24L01+
-Written by:				Mohamed Yaqoob (MYaqoobEmbedded YouTube Channel)
-Date Written:			10/11/2018
-Last modified:		-/-
-Description:			This is an STM32 device driver library for the NRF24L01 Nordic Radio transceiver, using STM HAL libraries
-References:				This library was written based on the Arduino NRF24 Open-Source library by J. Coliz and the NRF24 datasheet
-										- https://github.com/maniacbug/RF24
-										- https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf
-
-* Copyright (C) 2018 - M. Yaqoob
-   This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
-   of the GNU General Public Licenseversion 3 as published by the Free Software Foundation.
-
-   This software library is shared with puplic for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
-   or indirectly by this software, read more about this on the GNU General Public License.
+  ***************************************************************************************************************
+  ***************************************************************************************************************
+  ***************************************************************************************************************
+  File:		  NRF24L01.c
+  Author:     ControllersTech.com
+  Updated:    30th APRIL 2021
+  ***************************************************************************************************************
+  Copyright (C) 2017 ControllersTech.com
+  This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
+  of the GNU General Public License version 3 as published by the Free Software Foundation.
+  This software library is shared with public for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
+  or indirectly by this software, read more about this on the GNU General Public License.
+  ***************************************************************************************************************
 */
 
-//List of header files
+
+#include "stm32l4xx_hal.h"
 #include "nrf24.h"
 
-//*** Variables declaration ***//
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#define _BOOL(x) (((x)>0) ? 1:0)
+extern SPI_HandleTypeDef hspi3;
+#define NRF24_SPI &hspi3
 
-//*** Library variables ***//
-static uint64_t pipe0_reading_address;
-static bool ack_payload_available; /**< Whether there is an ack payload waiting */
-static uint8_t ack_payload_length; /**< Dynamic size of pending ack payload. */
-static uint8_t payload_size; /**< Fixed size of payloads */
-static bool dynamic_payloads_enabled; /**< Whether dynamic payloads are enabled. */
-static bool p_variant; /* False for RF24L01 and true for RF24L01P */
-static bool wide_band; /* 2Mbs data rate in use? */
+#define NRF24_CE_PORT   GPIOB
+#define NRF24_CE_PIN    GPIO_PIN_7
 
-//*** NRF24L01 pins and handles ***//
-//CE and CSN pins
-static GPIO_TypeDef		*nrf24_PORT;
-static uint16_t				nrf24_CSN_PIN;
-static uint16_t				nrf24_CE_PIN;
-//SPI handle
-static SPI_HandleTypeDef nrf24_hspi;
-//Debugging UART handle
+#define NRF24_CSN_PORT   GPIOB
+#define NRF24_CSN_PIN    GPIO_PIN_6
 
-//**** Functions prototypes ****//
-//Microsecond delay function
-void NRF24_DelayMicroSeconds(uint32_t uSec)
+
+void CS_Select (void)
 {
-	uint32_t uSecVar = uSec;
-	uSecVar = uSecVar* ((SystemCoreClock/1000000)/3);
-	while(uSecVar--);
+	HAL_GPIO_WritePin(NRF24_CSN_PORT, NRF24_CSN_PIN, GPIO_PIN_RESET);
 }
 
-//1. Chip Select function
-void NRF24_csn(int state)
+void CS_UnSelect (void)
 {
-	if(state) HAL_GPIO_WritePin(nrf24_PORT, nrf24_CSN_PIN, GPIO_PIN_SET);
-	else HAL_GPIO_WritePin(nrf24_PORT, nrf24_CSN_PIN, GPIO_PIN_RESET);
-}
-//2. Chip Enable
-void NRF24_ce(int state)
-{
-	if(state) HAL_GPIO_WritePin(nrf24_PORT, nrf24_CE_PIN, GPIO_PIN_SET);
-	else HAL_GPIO_WritePin(nrf24_PORT, nrf24_CE_PIN, GPIO_PIN_RESET);
-}
-//3. Read single byte from a register
-uint8_t NRF24_read_register(uint8_t reg)
-{
-	uint8_t spiBuf[3];
-	uint8_t retData;
-	//Put CSN low
-	NRF24_csn(0);
-	//Transmit register address
-	spiBuf[0] = reg&0x1F;
-	HAL_SPI_Transmit(&nrf24_hspi, spiBuf, 1, 100);
-	//Receive data
-	HAL_SPI_Receive(&nrf24_hspi, &spiBuf[1], 1, 100);
-	retData = spiBuf[1];
-	//Bring CSN high
-	NRF24_csn(1);
-	return retData;
-}
-//4. Read multiple bytes register
-void NRF24_read_registerN(uint8_t reg, uint8_t *buf, uint8_t len)
-{
-	uint8_t spiBuf[3];
-	//Put CSN low
-	NRF24_csn(0);
-	//Transmit register address
-	spiBuf[0] = reg&0x1F;
-	//spiStatus = NRF24_SPI_Write(spiBuf, 1);
-	HAL_SPI_Transmit(&nrf24_hspi, spiBuf, 1, 100);
-	//Receive data
-	HAL_SPI_Receive(&nrf24_hspi, buf, len, 100);
-	//Bring CSN high
-	NRF24_csn(1);
-}
-//5. Write single byte register
-void NRF24_write_register(uint8_t reg, uint8_t value)
-{
-	uint8_t spiBuf[3];
-	//Put CSN low
-	NRF24_csn(0);
-	//Transmit register address and data
-	spiBuf[0] = reg|0x20;
-	spiBuf[1] = value;
-	HAL_SPI_Transmit(&nrf24_hspi, spiBuf, 2, 100);
-	//Bring CSN high
-	NRF24_csn(1);
-}
-//6. Write multipl bytes register
-void NRF24_write_registerN(uint8_t reg, const uint8_t* buf, uint8_t len)
-{
-	uint8_t spiBuf[3];
-	//Put CSN low
-	NRF24_csn(0);
-	//Transmit register address and data
-	spiBuf[0] = reg|0x20;
-	HAL_SPI_Transmit(&nrf24_hspi, spiBuf, 1, 100);
-	HAL_SPI_Transmit(&nrf24_hspi, (uint8_t*)buf, len, 100);
-	//Bring CSN high
-	NRF24_csn(1);
-}
-//7. Write transmit payload
-void NRF24_write_payload(const void* buf, uint8_t len)
-{
-	uint8_t wrPayloadCmd;
-	//Bring CSN low
-	NRF24_csn(0);
-	//Send Write Tx payload command followed by pbuf data
-	wrPayloadCmd = CMD_W_TX_PAYLOAD;
-	HAL_SPI_Transmit(&nrf24_hspi, &wrPayloadCmd, 1, 100);
-	HAL_SPI_Transmit(&nrf24_hspi, (uint8_t *)buf, len, 100);
-	//Bring CSN high
-	NRF24_csn(1);
-}
-//8. Read receive payload
-void NRF24_read_payload(void* buf, uint8_t len)
-{
-	uint8_t cmdRxBuf;
-	//Get data length using payload size
-	uint8_t data_len = MIN(len, NRF24_getPayloadSize());
-	//Read data from Rx payload buffer
-	NRF24_csn(0);
-	cmdRxBuf = CMD_R_RX_PAYLOAD;
-	HAL_SPI_Transmit(&nrf24_hspi, &cmdRxBuf, 1, 100);
-	HAL_SPI_Receive(&nrf24_hspi, buf, data_len, 100);
-	NRF24_csn(1);
+	HAL_GPIO_WritePin(NRF24_CSN_PORT, NRF24_CSN_PIN, GPIO_PIN_SET);
 }
 
-//9. Flush Tx buffer
-void NRF24_flush_tx(void)
+
+void CE_Enable (void)
 {
-	NRF24_write_register(CMD_FLUSH_TX, 0xFF);
-}
-//10. Flush Rx buffer
-void NRF24_flush_rx(void)
-{
-	NRF24_write_register(CMD_FLUSH_RX, 0xFF);
-}
-//11. Get status register value
-uint8_t NRF24_get_status(void)
-{
-	uint8_t statReg;
-	statReg = NRF24_read_register(REG_STATUS);
-	return statReg;
+	HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_SET);
 }
 
-//12. Begin function
-void NRF24_begin(GPIO_TypeDef *nrf24PORT, uint16_t nrfCSN_Pin, uint16_t nrfCE_Pin, SPI_HandleTypeDef nrfSPI)
+void CE_Disable (void)
 {
-	//Copy SPI handle variable
-	memcpy(&nrf24_hspi, &nrfSPI, sizeof(nrfSPI));
-	//Copy Pins and Port variables
-	nrf24_PORT = nrf24PORT;
-	nrf24_CSN_PIN = nrfCSN_Pin;
-	nrf24_CE_PIN = nrfCE_Pin;
-
-	//Put pins to idle state
-	NRF24_csn(1);
-	NRF24_ce(0);
-	//5 ms initial delay
-	HAL_Delay(5);
-
-	//**** Soft Reset Registers default values ****//
-	NRF24_write_register(0x00, 0x08);
-	NRF24_write_register(0x01, 0x3f);
-	NRF24_write_register(0x02, 0x03);
-	NRF24_write_register(0x03, 0x03);
-	NRF24_write_register(0x04, 0x03);
-	NRF24_write_register(0x05, 0x02);
-	NRF24_write_register(0x06, 0x0f);
-	NRF24_write_register(0x07, 0x0e);
-	NRF24_write_register(0x08, 0x00);
-	NRF24_write_register(0x09, 0x00);
-	uint8_t pipeAddrVar[6];
-	pipeAddrVar[4]=0xE7; pipeAddrVar[3]=0xE7; pipeAddrVar[2]=0xE7; pipeAddrVar[1]=0xE7; pipeAddrVar[0]=0xE7;
-	NRF24_write_registerN(0x0A, pipeAddrVar, 5);
-	pipeAddrVar[4]=0xC2; pipeAddrVar[3]=0xC2; pipeAddrVar[2]=0xC2; pipeAddrVar[1]=0xC2; pipeAddrVar[0]=0xC2;
-	NRF24_write_registerN(0x0B, pipeAddrVar, 5);
-	NRF24_write_register(0x0C, 0xC3);
-	NRF24_write_register(0x0D, 0xC4);
-	NRF24_write_register(0x0E, 0xC5);
-	NRF24_write_register(0x0F, 0xC6);
-	pipeAddrVar[4]=0xE7; pipeAddrVar[3]=0xE7; pipeAddrVar[2]=0xE7; pipeAddrVar[1]=0xE7; pipeAddrVar[0]=0xE7;
-	NRF24_write_registerN(0x10, pipeAddrVar, 5);
-	NRF24_write_register(0x11, 0);
-	NRF24_write_register(0x12, 0);
-	NRF24_write_register(0x13, 0);
-	NRF24_write_register(0x14, 0);
-	NRF24_write_register(0x15, 0);
-	NRF24_write_register(0x16, 0);
-
-	NRF24_ACTIVATE_cmd();
-	NRF24_write_register(0x1c, 0);
-	NRF24_write_register(0x1d, 0);
-	//Initialise retries 15 and delay 1250 usec
-	NRF24_setRetries(15, 15);
-	//Initialise PA level to max (0dB)
-	NRF24_setPALevel(RF24_PA_0dB);
-	//Initialise data rate to 1Mbps
-	NRF24_setDataRate(RF24_2MBPS);
-	//Initalise CRC length to 16-bit (2 bytes)
-	NRF24_setCRCLength(RF24_CRC_16);
-	//Disable dynamic payload
-	NRF24_disableDynamicPayloads();
-	//Set payload size
-	NRF24_setPayloadSize(32);
-
-	//Reset status register
-	NRF24_resetStatus();
-	//Initialise channel to 76
-	NRF24_setChannel(76);
-	//Flush buffers
-	NRF24_flush_tx();
-	NRF24_flush_rx();
-
-	NRF24_powerDown();
-
+	HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_RESET);
 }
-//13. Listen on open pipes for reading (Must call NRF24_openReadingPipe() first)
-void NRF24_startListening(void)
-{
-	//Power up and set to RX mode
-	NRF24_write_register(REG_CONFIG, NRF24_read_register(REG_CONFIG) | (1UL<<1) |(1UL <<0));
-	//Restore pipe 0 address if exists
-	if(pipe0_reading_address)
-		NRF24_write_registerN(REG_RX_ADDR_P0, (uint8_t *)(&pipe0_reading_address), 5);
 
-	//Flush buffers
-	NRF24_flush_tx();
-	NRF24_flush_rx();
-	//Set CE HIGH to start listenning
-	NRF24_ce(1);
-	//Wait for 130 uSec for the radio to come on
-	NRF24_DelayMicroSeconds(150);
-}
-//14. Stop listening (essential before any write operation)
-void NRF24_stopListening(void)
-{
-	NRF24_ce(0);
-	NRF24_flush_tx();
-	NRF24_flush_rx();
-}
-//15. Write(Transmit data), returns true if successfully sent
-bool NRF24_write( const void* buf, uint8_t len )
-{
-	bool retStatus;
-	//Start writing
-	NRF24_resetStatus();
-	NRF24_startWrite(buf,len);
-	//Data monitor
-  uint8_t observe_tx;
-  uint8_t status;
-  uint32_t sent_at = HAL_GetTick();
-	const uint32_t timeout = 10; //ms to wait for timeout
-	do
-  {
-    NRF24_read_registerN(REG_OBSERVE_TX,&observe_tx,1);
-		//Get status register
-		status = NRF24_get_status();
-  }
-  while( ! ( status & ( _BV(BIT_TX_DS) | _BV(BIT_MAX_RT) ) ) && ( HAL_GetTick() - sent_at < timeout ) );
 
-//	printConfigReg();
-//	printStatusReg();
 
-	bool tx_ok, tx_fail;
-  NRF24_whatHappened(&tx_ok,&tx_fail, &ack_payload_available);
-	retStatus = tx_ok;
-	if ( ack_payload_available )
-  {
-    ack_payload_length = NRF24_getDynamicPayloadSize();
-	}
+// write a single byte to the particular register
+void nrf24_WriteReg (uint8_t Reg, uint8_t Data)
+{
+	uint8_t buf[2];
+	buf[0] = Reg|1<<5;
+	buf[1] = Data;
 
-	//Power down
-	NRF24_available();
-	NRF24_flush_tx();
-	return retStatus;
-}
-//16. Check for available data to read
-bool NRF24_available(void)
-{
-	return NRF24_availablePipe(NULL);
-}
-//17. Read received data
-bool NRF24_read( void* buf, uint8_t len )
-{
-	NRF24_read_payload( buf, len );
-	uint8_t rxStatus = NRF24_read_register(REG_FIFO_STATUS) & _BV(BIT_RX_EMPTY);
-	NRF24_flush_rx();
-	NRF24_getDynamicPayloadSize();
-	return rxStatus;
-}
-//18. Open Tx pipe for writing (Cannot perform this while Listenning, has to call NRF24_stopListening)
-void NRF24_openWritingPipe(uint64_t address)
-{
-	NRF24_write_registerN(REG_RX_ADDR_P0, (uint8_t *)(&address), 5);
-  NRF24_write_registerN(REG_TX_ADDR, (uint8_t *)(&address), 5);
+	// Pull the CS Pin LOW to select the device
+	CS_Select();
 
-	const uint8_t max_payload_size = 32;
-  NRF24_write_register(REG_RX_PW_P0,MIN(payload_size,max_payload_size));
-}
-//19. Open reading pipe
-void NRF24_openReadingPipe(uint8_t number, uint64_t address)
-{
-	if (number == 0)
-    pipe0_reading_address = address;
+	HAL_SPI_Transmit(NRF24_SPI, buf, 2, 1000);
 
-	if(number <= 6)
+	// Pull the CS HIGH to release the device
+	CS_UnSelect();
+}
+
+//write multiple bytes starting from a particular register
+void nrf24_WriteRegMulti (uint8_t Reg, uint8_t *data, int size)
+{
+	uint8_t buf[2];
+	buf[0] = Reg|1<<5;
+//	buf[1] = Data;
+
+	// Pull the CS Pin LOW to select the device
+	CS_Select();
+
+	HAL_SPI_Transmit(NRF24_SPI, buf, 1, 100);
+	HAL_SPI_Transmit(NRF24_SPI, data, size, 1000);
+
+	// Pull the CS HIGH to release the device
+	CS_UnSelect();
+}
+
+
+uint8_t nrf24_ReadReg (uint8_t Reg)
+{
+	uint8_t data=0;
+
+	// Pull the CS Pin LOW to select the device
+	CS_Select();
+
+	HAL_SPI_Transmit(NRF24_SPI, &Reg, 1, 100);
+	HAL_SPI_Receive(NRF24_SPI, &data, 1, 100);
+
+	// Pull the CS HIGH to release the device
+	CS_UnSelect();
+
+	return data;
+}
+
+
+/* Read multiple bytes from the register */
+void nrf24_ReadReg_Multi (uint8_t Reg, uint8_t *data, int size)
+{
+	// Pull the CS Pin LOW to select the device
+	CS_Select();
+
+	HAL_SPI_Transmit(NRF24_SPI, &Reg, 1, 100);
+	HAL_SPI_Receive(NRF24_SPI, data, size, 1000);
+
+	// Pull the CS HIGH to release the device
+	CS_UnSelect();
+}
+
+
+// send the command to the NRF
+void nrfsendCmd (uint8_t cmd)
+{
+	// Pull the CS Pin LOW to select the device
+	CS_Select();
+
+	HAL_SPI_Transmit(NRF24_SPI, &cmd, 1, 100);
+
+	// Pull the CS HIGH to release the device
+	CS_UnSelect();
+}
+
+void nrf24_reset(uint8_t REG)
+{
+	if (REG == STATUS)
 	{
-		if(number < 2)
-		{
-			//Address width is 5 bytes
-			NRF24_write_registerN(NRF24_ADDR_REGS[number], (uint8_t *)(&address), 5);
-		}
-		else
-		{
-			NRF24_write_registerN(NRF24_ADDR_REGS[number], (uint8_t *)(&address), 1);
-		}
-		//Write payload size
-		NRF24_write_register(RF24_RX_PW_PIPE[number],payload_size);
-		//Enable pipe
-		NRF24_write_register(REG_EN_RXADDR, NRF24_read_register(REG_EN_RXADDR) | _BV(number));
+		nrf24_WriteReg(STATUS, 0x00);
 	}
 
-}
-//20 set transmit retries (rf24_Retries_e) and delay
-void NRF24_setRetries(uint8_t delay, uint8_t count)
-{
-	NRF24_write_register(REG_SETUP_RETR,(delay&0xf)<<BIT_ARD | (count&0xf)<<BIT_ARC);
-}
-
-//21. Set RF channel frequency
-void NRF24_setChannel(uint8_t channel)
-{
-	const uint8_t max_channel = 127;
-  NRF24_write_register(REG_RF_CH,MIN(channel,max_channel));
-}
-//22. Set payload size
-void NRF24_setPayloadSize(uint8_t size)
-{
-	const uint8_t max_payload_size = 32;
-  payload_size = MIN(size,max_payload_size);
-}
-//23. Get payload size
-uint8_t NRF24_getPayloadSize(void)
-{
-	return payload_size;
-}
-//24. Get dynamic payload size, of latest packet received
-uint8_t NRF24_getDynamicPayloadSize(void)
-{
-	return NRF24_read_register(CMD_R_RX_PL_WID);
-}
-//25. Enable payload on Ackknowledge packet
-void NRF24_enableAckPayload(void)
-{
-	//Need to enable dynamic payload and Ack payload together
-	 NRF24_write_register(REG_FEATURE,NRF24_read_register(REG_FEATURE) | _BV(BIT_EN_ACK_PAY) | _BV(BIT_EN_DPL) );
-	if(!NRF24_read_register(REG_FEATURE))
+	else if (REG == FIFO_STATUS)
 	{
-		NRF24_ACTIVATE_cmd();
-		NRF24_write_register(REG_FEATURE,NRF24_read_register(REG_FEATURE) | _BV(BIT_EN_ACK_PAY) | _BV(BIT_EN_DPL) );
+		nrf24_WriteReg(FIFO_STATUS, 0x11);
 	}
-	// Enable dynamic payload on pipes 0 & 1
-	NRF24_write_register(REG_DYNPD,NRF24_read_register(REG_DYNPD) | _BV(BIT_DPL_P1) | _BV(BIT_DPL_P0));
+
+	else {
+	nrf24_WriteReg(CONFIG, 0x08);
+	nrf24_WriteReg(EN_AA, 0x3F);
+	nrf24_WriteReg(EN_RXADDR, 0x03);
+	nrf24_WriteReg(SETUP_AW, 0x03);
+	nrf24_WriteReg(SETUP_RETR, 0x03);
+	nrf24_WriteReg(RF_CH, 0x02);
+	nrf24_WriteReg(RF_SETUP, 0x0E);
+	nrf24_WriteReg(STATUS, 0x00);
+	nrf24_WriteReg(OBSERVE_TX, 0x00);
+	nrf24_WriteReg(CD, 0x00);
+	uint8_t rx_addr_p0_def[5] = {0xE7, 0xE7, 0xE7, 0xE7, 0xE7};
+	nrf24_WriteRegMulti(RX_ADDR_P0, rx_addr_p0_def, 5);
+	uint8_t rx_addr_p1_def[5] = {0xC2, 0xC2, 0xC2, 0xC2, 0xC2};
+	nrf24_WriteRegMulti(RX_ADDR_P1, rx_addr_p1_def, 5);
+	nrf24_WriteReg(RX_ADDR_P2, 0xC3);
+	nrf24_WriteReg(RX_ADDR_P3, 0xC4);
+	nrf24_WriteReg(RX_ADDR_P4, 0xC5);
+	nrf24_WriteReg(RX_ADDR_P5, 0xC6);
+	uint8_t tx_addr_def[5] = {0xE7, 0xE7, 0xE7, 0xE7, 0xE7};
+	nrf24_WriteRegMulti(TX_ADDR, tx_addr_def, 5);
+	nrf24_WriteReg(RX_PW_P0, 0);
+	nrf24_WriteReg(RX_PW_P1, 0);
+	nrf24_WriteReg(RX_PW_P2, 0);
+	nrf24_WriteReg(RX_PW_P3, 0);
+	nrf24_WriteReg(RX_PW_P4, 0);
+	nrf24_WriteReg(RX_PW_P5, 0);
+	nrf24_WriteReg(FIFO_STATUS, 0x11);
+	nrf24_WriteReg(DYNPD, 0);
+	nrf24_WriteReg(FEATURE, 0);
+	}
 }
-//26. Enable dynamic payloads
-void NRF24_enableDynamicPayloads(void)
+
+
+
+
+void NRF24_Init (void)
 {
-	//Enable dynamic payload through FEATURE register
-	NRF24_write_register(REG_FEATURE,NRF24_read_register(REG_FEATURE) |  _BV(BIT_EN_DPL) );
-	if(!NRF24_read_register(REG_FEATURE))
+	// disable the chip before configuring the device
+	CE_Disable();
+
+
+	// reset everything
+	nrf24_reset (0);
+
+	nrf24_WriteReg(CONFIG, 0);  // will be configured later
+
+	nrf24_WriteReg(EN_AA, 0);  // No Auto ACK
+
+	nrf24_WriteReg (EN_RXADDR, 0);  // Not Enabling any data pipe right now
+
+	nrf24_WriteReg (SETUP_AW, 0x03);  // 5 Bytes for the TX/RX address
+
+	nrf24_WriteReg (SETUP_RETR, 0);   // No retransmission
+
+	nrf24_WriteReg (RF_CH, 0);  // will be setup during Tx or RX
+
+	nrf24_WriteReg (RF_SETUP, 0x0E);   // Power= 0db, data rate = 2Mbps
+
+	// Enable the chip after configuring the device
+	CE_Enable();
+
+}
+
+
+// set up the Tx mode
+
+void NRF24_TxMode (uint8_t *Address, uint8_t channel)
+{
+	// disable the chip before configuring the device
+	CE_Disable();
+
+	nrf24_WriteReg (RF_CH, channel);  // select the channel
+
+	nrf24_WriteRegMulti(TX_ADDR, Address, 5);  // Write the TX address
+
+
+	// power up the device
+	uint8_t config = nrf24_ReadReg(CONFIG);
+//	config = config | (1<<1);   // write 1 in the PWR_UP bit
+	config = config & (0xF2);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
+	nrf24_WriteReg (CONFIG, config);
+
+	// Enable the chip after configuring the device
+	CE_Enable();
+}
+
+
+// transmit the data
+
+uint8_t NRF24_Transmit (uint8_t *data)
+{
+	uint8_t cmdtosend = 0;
+
+	// select the device
+	CS_Select();
+
+	// payload command
+	cmdtosend = W_TX_PAYLOAD;
+	HAL_SPI_Transmit(NRF24_SPI, &cmdtosend, 1, 100);
+
+	// send the payload
+	HAL_SPI_Transmit(NRF24_SPI, data, 32, 1000);
+
+	// Unselect the device
+	CS_UnSelect();
+
+	HAL_Delay(1);
+
+	uint8_t fifostatus = nrf24_ReadReg(FIFO_STATUS);
+
+	// check the fourth bit of FIFO_STATUS to know if the TX fifo is empty
+	if ((fifostatus&(1<<4)) && (!(fifostatus&(1<<3))))
 	{
-		NRF24_ACTIVATE_cmd();
-		NRF24_write_register(REG_FEATURE,NRF24_read_register(REG_FEATURE) |  _BV(BIT_EN_DPL) );
+		cmdtosend = FLUSH_TX;
+		nrfsendCmd(cmdtosend);
+
+		// reset FIFO_STATUS
+		nrf24_reset (FIFO_STATUS);
+
+		return 1;
 	}
-	//Enable Dynamic payload on all pipes
-	NRF24_write_register(REG_DYNPD,NRF24_read_register(REG_DYNPD) | _BV(BIT_DPL_P5) | _BV(BIT_DPL_P4) | _BV(BIT_DPL_P3) | _BV(BIT_DPL_P2) | _BV(BIT_DPL_P1) | _BV(BIT_DPL_P0));
-  dynamic_payloads_enabled = true;
 
-}
-void NRF24_disableDynamicPayloads(void)
-{
-	NRF24_write_register(REG_FEATURE,NRF24_read_register(REG_FEATURE) &  ~(_BV(BIT_EN_DPL)) );
-	//Disable for all pipes
-	NRF24_write_register(REG_DYNPD,0);
-	dynamic_payloads_enabled = false;
-}
-//27. Check if module is NRF24L01+ or normal module
-bool NRF24_isNRF_Plus(void)
-{
-	return p_variant;
-}
-//28. Set Auto Ack for all
-void NRF24_setAutoAck(bool enable)
-{
-	if ( enable )
-    NRF24_write_register(REG_EN_AA, 0x3F);
-  else
-    NRF24_write_register(REG_EN_AA, 0x00);
-}
-//29. Set Auto Ack for certain pipe
-void NRF24_setAutoAckPipe( uint8_t pipe, bool enable )
-{
-	if ( pipe <= 6 )
-  {
-    uint8_t en_aa = NRF24_read_register( REG_EN_AA ) ;
-    if( enable )
-    {
-      en_aa |= _BV(pipe) ;
-    }
-    else
-    {
-      en_aa &= ~_BV(pipe) ;
-    }
-    NRF24_write_register( REG_EN_AA, en_aa ) ;
-  }
-}
-//30. Set transmit power level
-void NRF24_setPALevel( rf24_pa_dbm_e level )
-{
-	uint8_t setup = NRF24_read_register(REG_RF_SETUP) ;
-  setup &= ~(_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH)) ;
-
-  // switch uses RAM (evil!)
-  if ( level == RF24_PA_0dB)
-  {
-    setup |= (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH)) ;
-  }
-  else if ( level == RF24_PA_m6dB )
-  {
-    setup |= _BV(RF_PWR_HIGH) ;
-  }
-  else if ( level == RF24_PA_m12dB )
-  {
-    setup |= _BV(RF_PWR_LOW);
-  }
-  else if ( level == RF24_PA_m18dB )
-  {
-    // nothing
-  }
-  else if ( level == RF24_PA_ERROR )
-  {
-    // On error, go to maximum PA
-    setup |= (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH)) ;
-  }
-
-  NRF24_write_register( REG_RF_SETUP, setup ) ;
-}
-//31. Get transmit power level
-rf24_pa_dbm_e NRF24_getPALevel( void )
-{
-	rf24_pa_dbm_e result = RF24_PA_ERROR ;
-  uint8_t power = NRF24_read_register(REG_RF_SETUP) & (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH));
-
-  // switch uses RAM (evil!)
-  if ( power == (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH)) )
-  {
-    result = RF24_PA_0dB ;
-  }
-  else if ( power == _BV(RF_PWR_HIGH) )
-  {
-    result = RF24_PA_m6dB ;
-  }
-  else if ( power == _BV(RF_PWR_LOW) )
-  {
-    result = RF24_PA_m12dB ;
-  }
-  else
-  {
-    result = RF24_PA_m18dB ;
-  }
-
-  return result ;
-}
-//32. Set data rate (250 Kbps, 1Mbps, 2Mbps)
-bool NRF24_setDataRate(rf24_datarate_e speed)
-{
-	bool result = false;
-  uint8_t setup = NRF24_read_register(REG_RF_SETUP) ;
-
-  // HIGH and LOW '00' is 1Mbs - our default
-  wide_band = false ;
-  setup &= ~(_BV(RF_DR_LOW) | _BV(RF_DR_HIGH)) ;
-  if( speed == RF24_250KBPS )
-  {
-    // Must set the RF_DR_LOW to 1; RF_DR_HIGH (used to be RF_DR) is already 0
-    // Making it '10'.
-    wide_band = false ;
-    setup |= _BV( RF_DR_LOW ) ;
-  }
-  else
-  {
-    // Set 2Mbs, RF_DR (RF_DR_HIGH) is set 1
-    // Making it '01'
-    if ( speed == RF24_2MBPS )
-    {
-      wide_band = true ;
-      setup |= _BV(RF_DR_HIGH);
-    }
-    else
-    {
-      // 1Mbs
-      wide_band = false ;
-    }
-  }
-  NRF24_write_register(REG_RF_SETUP,setup);
-
-  // Verify our result
-  if ( NRF24_read_register(REG_RF_SETUP) == setup )
-  {
-    result = true;
-  }
-  else
-  {
-    wide_band = false;
-  }
-
-  return result;
-}
-//33. Get data rate
-rf24_datarate_e NRF24_getDataRate( void )
-{
-	rf24_datarate_e result ;
-  uint8_t dr = NRF24_read_register(REG_RF_SETUP) & (_BV(RF_DR_LOW) | _BV(RF_DR_HIGH));
-
-  // switch uses RAM (evil!)
-  // Order matters in our case below
-  if ( dr == _BV(RF_DR_LOW) )
-  {
-    // '10' = 250KBPS
-    result = RF24_250KBPS ;
-  }
-  else if ( dr == _BV(RF_DR_HIGH) )
-  {
-    // '01' = 2MBPS
-    result = RF24_2MBPS ;
-  }
-  else
-  {
-    // '00' = 1MBPS
-    result = RF24_1MBPS ;
-  }
-  return result ;
-}
-//34. Set crc length (disable, 8-bits or 16-bits)
-void NRF24_setCRCLength(rf24_crclength_e length)
-{
-	uint8_t config = NRF24_read_register(REG_CONFIG) & ~( _BV(BIT_CRCO) | _BV(BIT_EN_CRC)) ;
-
-  // switch uses RAM
-  if ( length == RF24_CRC_DISABLED )
-  {
-    // Do nothing, we turned it off above.
-  }
-  else if ( length == RF24_CRC_8 )
-  {
-    config |= _BV(BIT_EN_CRC);
-  }
-  else
-  {
-    config |= _BV(BIT_EN_CRC);
-    config |= _BV( BIT_CRCO );
-  }
-  NRF24_write_register( REG_CONFIG, config );
-}
-//35. Get CRC length
-rf24_crclength_e NRF24_getCRCLength(void)
-{
-	rf24_crclength_e result = RF24_CRC_DISABLED;
-  uint8_t config = NRF24_read_register(REG_CONFIG) & ( _BV(BIT_CRCO) | _BV(BIT_EN_CRC)) ;
-
-  if ( config & _BV(BIT_EN_CRC ) )
-  {
-    if ( config & _BV(BIT_CRCO) )
-      result = RF24_CRC_16;
-    else
-      result = RF24_CRC_8;
-  }
-
-  return result;
-}
-//36. Disable CRC
-void NRF24_disableCRC( void )
-{
-	uint8_t disable = NRF24_read_register(REG_CONFIG) & ~_BV(BIT_EN_CRC) ;
-  NRF24_write_register( REG_CONFIG, disable ) ;
-}
-//37. power up
-void NRF24_powerUp(void)
-{
-	NRF24_write_register(REG_CONFIG,NRF24_read_register(REG_CONFIG) | _BV(BIT_PWR_UP));
-}
-//38. power down
-void NRF24_powerDown(void)
-{
-	NRF24_write_register(REG_CONFIG,NRF24_read_register(REG_CONFIG) & ~_BV(BIT_PWR_UP));
-}
-//39. Check if data are available and on which pipe (Use this for multiple rx pipes)
-bool NRF24_availablePipe(uint8_t* pipe_num)
-{
-	uint8_t status = NRF24_get_status();
-
-  bool result = ( status & _BV(BIT_RX_DR) );
-
-  if (result)
-  {
-    // If the caller wants the pipe number, include that
-    if ( pipe_num )
-      *pipe_num = ( status >> BIT_RX_P_NO ) & 0x7;
-
-    // Clear the status bit
-    NRF24_write_register(REG_STATUS,_BV(BIT_RX_DR) );
-
-    // Handle ack payload receipt
-    if ( status & _BV(BIT_TX_DS) )
-    {
-      NRF24_write_register(REG_STATUS,_BV(BIT_TX_DS));
-    }
-  }
-  return result;
-}
-//40. Start write (for IRQ mode)
-void NRF24_startWrite( const void* buf, uint8_t len )
-{
-  // Transmitter power-up
-  NRF24_ce(0);
-  NRF24_write_register(REG_CONFIG, ( NRF24_read_register(REG_CONFIG) | _BV(BIT_PWR_UP) ) & ~_BV(BIT_PRIM_RX) );
-  NRF24_ce(1);
-  NRF24_DelayMicroSeconds(150);
-
-  // Send the payload
-  NRF24_write_payload( buf, len );
-
-  // Enable Tx for 15usec
-  NRF24_ce(1);
-  NRF24_DelayMicroSeconds(15);
-  NRF24_ce(0);
-}
-//41. Write acknowledge payload
-void NRF24_writeAckPayload(uint8_t pipe, const void* buf, uint8_t len)
-{
-	const uint8_t* current = (uint8_t *)buf;
-	const uint8_t max_payload_size = 32;
-  uint8_t data_len = MIN(len,max_payload_size);
-
-  NRF24_csn(0);
-	NRF24_write_registerN(CMD_W_ACK_PAYLOAD | ( pipe & 0x7 ) , current, data_len);
-  NRF24_csn(1);
-}
-//42. Check if an Ack payload is available
-bool NRF24_isAckPayloadAvailable(void)
-{
-	bool result = ack_payload_available;
-  ack_payload_available = false;
-  return result;
-}
-//43. Check interrupt flags
-void NRF24_whatHappened(bool *tx_ok,bool *tx_fail,bool *rx_ready)
-{
-	uint8_t status = NRF24_get_status();
-	*tx_ok = 0;
-	NRF24_write_register(REG_STATUS,_BV(BIT_RX_DR) | _BV(BIT_TX_DS) | _BV(BIT_MAX_RT) );
-  // Report to the user what happened
-  *tx_ok = status & _BV(BIT_TX_DS);
-  *tx_fail = status & _BV(BIT_MAX_RT);
-  *rx_ready = status & _BV(BIT_RX_DR);
-}
-//44. Test if there is a carrier on the previous listenning period (useful to check for intereference)
-bool NRF24_testCarrier(void)
-{
-	return NRF24_read_register(REG_CD) & 1;
-}
-//45. Test if a signal carrier exists (=> -64dB), only for NRF24L01+
-bool NRF24_testRPD(void)
-{
-	return NRF24_read_register(REG_RPD) & 1;
+	return 0;
 }
 
-//46. Reset Status
-void NRF24_resetStatus(void)
+
+void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 {
-	NRF24_write_register(REG_STATUS,_BV(BIT_RX_DR) | _BV(BIT_TX_DS) | _BV(BIT_MAX_RT) );
+	// disable the chip before configuring the device
+	CE_Disable();
+
+	nrf24_reset (STATUS);
+
+	nrf24_WriteReg (RF_CH, channel);  // select the channel
+
+	// select data pipe 2
+	uint8_t en_rxaddr = nrf24_ReadReg(EN_RXADDR);
+	en_rxaddr = en_rxaddr | (1<<2);
+	nrf24_WriteReg (EN_RXADDR, en_rxaddr);
+
+	/* We must write the address for Data Pipe 1, if we want to use any pipe from 2 to 5
+	 * The Address from DATA Pipe 2 to Data Pipe 5 differs only in the LSB
+	 * Their 4 MSB Bytes will still be same as Data Pipe 1
+	 *
+	 * For Eg->
+	 * Pipe 1 ADDR = 0xAABBCCDD11
+	 * Pipe 2 ADDR = 0xAABBCCDD22
+	 * Pipe 3 ADDR = 0xAABBCCDD33
+	 *
+	 */
+	nrf24_WriteRegMulti(RX_ADDR_P1, Address, 5);  // Write the Pipe1 address
+	nrf24_WriteReg(RX_ADDR_P2, 0xEE);  // Write the Pipe2 LSB address
+
+	nrf24_WriteReg (RX_PW_P2, 32);   // 32 bit payload size for pipe 2
+
+
+	// power up the device in Rx mode
+	uint8_t config = nrf24_ReadReg(CONFIG);
+	config = config | (1<<1) | (1<<0);
+	nrf24_WriteReg (CONFIG, config);
+
+	// Enable the chip after configuring the device
+	CE_Enable();
 }
 
-//47. ACTIVATE cmd
-void NRF24_ACTIVATE_cmd(void)
+
+uint8_t isDataAvailable (int pipenum)
 {
-	uint8_t cmdRxBuf[2];
-	//Read data from Rx payload buffer
-	NRF24_csn(0);
-	cmdRxBuf[0] = CMD_ACTIVATE;
-	cmdRxBuf[1] = 0x73;
-	HAL_SPI_Transmit(&nrf24_hspi, cmdRxBuf, 2, 100);
-	NRF24_csn(1);
+	uint8_t status = nrf24_ReadReg(STATUS);
+
+	if ((status&(1<<6))&&(status&(pipenum<<1)))
+	{
+
+		nrf24_WriteReg(STATUS, (1<<6));
+
+		return 1;
+	}
+
+	return 0;
 }
-//48. Get AckPayload Size
-uint8_t NRF24_GetAckPayloadSize(void)
+
+
+void NRF24_Receive (uint8_t *data)
 {
-	return ack_payload_length;
+	uint8_t cmdtosend = 0;
+
+	// select the device
+	CS_Select();
+
+	// payload command
+	cmdtosend = R_RX_PAYLOAD;
+	HAL_SPI_Transmit(NRF24_SPI, &cmdtosend, 1, 100);
+
+	// Receive the payload
+	HAL_SPI_Receive(NRF24_SPI, data, 32, 1000);
+
+	// Unselect the device
+	CS_UnSelect();
+
+	HAL_Delay(1);
+
+	cmdtosend = FLUSH_RX;
+	nrfsendCmd(cmdtosend);
+}
+
+
+
+// Read all the Register data
+void NRF24_ReadAll (uint8_t *data)
+{
+	for (int i=0; i<10; i++)
+	{
+		*(data+i) = nrf24_ReadReg(i);
+	}
+
+	nrf24_ReadReg_Multi(RX_ADDR_P0, (data+10), 5);
+
+	nrf24_ReadReg_Multi(RX_ADDR_P1, (data+15), 5);
+
+	*(data+20) = nrf24_ReadReg(RX_ADDR_P2);
+	*(data+21) = nrf24_ReadReg(RX_ADDR_P3);
+	*(data+22) = nrf24_ReadReg(RX_ADDR_P4);
+	*(data+23) = nrf24_ReadReg(RX_ADDR_P5);
+
+	nrf24_ReadReg_Multi(RX_ADDR_P0, (data+24), 5);
+
+	for (int i=29; i<38; i++)
+	{
+		*(data+i) = nrf24_ReadReg(i-12);
+	}
+
 }
 
 
