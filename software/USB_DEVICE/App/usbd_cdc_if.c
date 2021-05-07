@@ -21,9 +21,11 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_cdc_if.h"
+#include "main.h"
+#include "nrf24.h"
 
 /* USER CODE BEGIN INCLUDE */
-extern char rxBuffer[64];
+uint8_t rxBuffer[64];
 uint8_t buffer_pos = 0;
 /* USER CODE END INCLUDE */
 
@@ -270,6 +272,18 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   for(i=0;i<*Len;i++){
 	  rxBuffer[i] = Buf[i];
   }
+
+/*
+#if MODE == TX
+  if(NRF24_Transmit(rxBuffer) == 1){
+		//sprintf(txBuffer,"%u\r\n",count);
+		//CDC_Transmit_FS((uint8_t *) txBuffer,strlen(txBuffer));
+		HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_0);
+		HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_1);
+		HAL_Delay(100);
+  }
+#endif*/
+
 
   //CDC_Transmit_FS((uint8_t *) rxBuffer,strlen(rxBuffer));
 

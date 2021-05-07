@@ -32,6 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define MODE 1 // RX or TX
 SPI_HandleTypeDef hspi3;
 /* USER CODE END Includes */
 

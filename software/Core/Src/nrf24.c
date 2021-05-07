@@ -277,8 +277,9 @@ void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 	nrf24_WriteReg (RF_CH, channel);  // select the channel
 
 	// select data pipe 2
-	uint8_t en_rxaddr = nrf24_ReadReg(EN_RXADDR);
-	en_rxaddr = en_rxaddr | (1<<2);
+	//uint8_t en_rxaddr = nrf24_ReadReg(EN_RXADDR);
+	//en_rxaddr = en_rxaddr | (1<<2);
+	uint8_t en_rxaddr = 0x3F;
 	nrf24_WriteReg (EN_RXADDR, en_rxaddr);
 
 	/* We must write the address for Data Pipe 1, if we want to use any pipe from 2 to 5
@@ -294,12 +295,16 @@ void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 	nrf24_WriteRegMulti(RX_ADDR_P1, Address, 5);  // Write the Pipe1 address
 	nrf24_WriteReg(RX_ADDR_P2, 0xEE);  // Write the Pipe2 LSB address
 
+	nrf24_WriteReg (RX_PW_P1, 32);   // 32 bit payload size for pipe 2
+
 	nrf24_WriteReg (RX_PW_P2, 32);   // 32 bit payload size for pipe 2
 
 
 	// power up the device in Rx mode
-	uint8_t config = nrf24_ReadReg(CONFIG);
-	config = config | (1<<1) | (1<<0);
+	//uint8_t config = nrf24_ReadReg(CONFIG);
+	uint8_t config = (0xF3);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
+
+	//config = config | (1<<1) | (1<<0);
 	nrf24_WriteReg (CONFIG, config);
 
 	// Enable the chip after configuring the device

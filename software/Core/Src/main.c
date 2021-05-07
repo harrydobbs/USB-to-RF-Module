@@ -44,11 +44,10 @@ ____/ /_  /   _  /  / / ____/ /_  __/      / /_/ / ____/ /_  /_/ /_/_____/  _, _
 SPI_HandleTypeDef hspi3;
 
 /* USER CODE BEGIN PV */
-
 SPI_HandleTypeDef hspi3;
 char rxBuffer[64];
-char txBuffer[64];
-uint8_t TxAddress[5] = {0xEE,0xDD,0xCC,0xBB,0xAA};
+uint8_t address[5] = {0xEE,0xDD,0xCC,0xBB,0xAA};
+uint8_t TxData[] = "Hello World\n";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,11 +100,13 @@ int main(void)
   NRF24_Init();
   HAL_Delay(500);
 
-  NRF24_TxMode(TxAddress,10);
-
+#if MODE == 0
+  NRF24_TxMode(address,10);
+#else if MODE == 1
+  NRF24_RxMode(address, 10);
+  //NRF24_ReadAll(data);
+#endif
   HAL_Delay(50);
-
-  uint8_t count = 0;
 
 
   /* USER CODE END 2 */
@@ -118,6 +119,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+#if MODE == 0
 
 	  if(NRF24_Transmit(TxData) == 1)
 	  {
@@ -127,35 +129,26 @@ int main(void)
 	   	HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_1);
 	  }
 
-	  HAL_Delay(100);
+#else if MODE == 1
 
-	 //NRF24_ReadAll(&txBuffer[0]);
-	 //CDC_Transmit_FS((uint8_t *) txBuffer,strlen(txBuffer));
+	  if(isDataAvailable(0) == 1)
+	  {
+		  NRF24_Receive(rxBuffer);
 
-	//count = 2;
-		/*
-		sprintf(txBuffer,"%u\r\n",count);
+		 /* if(CDC_Transmit_FS((uint8_t *) rxBuffer,strlen(rxBuffer)) == 1)
+		  {
+			  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+		  }*/
 
-		if(CDC_Transmit_FS((uint8_t *) txBuffer,strlen(txBuffer)) == 1)
-		{
-	   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
-	   	}
-	   	else
-	   	{
-	   		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
-	   	}*/
+		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
+	  }
 
+	  NRF24_ReadAll(&rxBuffer);
 
+#endif
 
-
-	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
-
-    //HAL_Delay(20);
-	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
-    //HAL_Delay(5000);
-
-	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_6,1);
-	//HAL_GPIO_WritePin(GPIOB,GPIO_PIN_7,1);
+	//HAL_Delay(100);
   }
 
   /* USER CODE END 3 */
