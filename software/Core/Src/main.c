@@ -46,7 +46,7 @@ SPI_HandleTypeDef hspi3;
 /* USER CODE BEGIN PV */
 SPI_HandleTypeDef hspi3;
 char rxBuffer[64];
-uint8_t address[5] = {0xAA,0xDD,0xCC,0xBB,0xAA};
+uint8_t address[5] = {0xAA,0xAA,0xAA,0xAA,0xAA};
 
 uint8_t TxData[32] = "Hello World\n";
 /* USER CODE END PV */
@@ -130,6 +130,7 @@ int main(void)
 	   	HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_0);
 	   	HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_1);
 	  }
+	  HAL_Delay(15);
 
 #else if MODE == 1
 
@@ -142,7 +143,7 @@ int main(void)
 			  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
 		  }*/
 
-		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
 			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
 	  }
 
@@ -155,7 +156,7 @@ int main(void)
 			  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
 		  }*/
 
-		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
 			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
 	  }
 
@@ -168,7 +169,7 @@ int main(void)
 			  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
 		  }*/
 
-		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,0);
 			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
 	  }
 	  //NRF24_ReadAll(&rxBuffer);
