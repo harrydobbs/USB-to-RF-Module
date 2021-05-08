@@ -46,8 +46,9 @@ SPI_HandleTypeDef hspi3;
 /* USER CODE BEGIN PV */
 SPI_HandleTypeDef hspi3;
 char rxBuffer[64];
-uint8_t address[5] = {0xEE,0xDD,0xCC,0xBB,0xAA};
-uint8_t TxData[] = "Hello World\n";
+uint8_t address[5] = {0xAA,0xDD,0xCC,0xBB,0xAA};
+
+uint8_t TxData[32] = "Hello World\n";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,18 +97,19 @@ int main(void)
   MX_SPI3_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(50);
   NRF24_Init();
-  HAL_Delay(500);
+  NRF24_ReadAll(&rxBuffer);
+
 
 #if MODE == 0
-  NRF24_TxMode(address,10);
+  NRF24_TxMode(address,120);
 #else if MODE == 1
-  NRF24_RxMode(address, 10);
+  NRF24_RxMode(address, 120);
   //NRF24_ReadAll(data);
 #endif
-  HAL_Delay(50);
+ // HAL_Delay(50);
 
+  NRF24_ReadAll(&rxBuffer);
 
   /* USER CODE END 2 */
 
@@ -133,7 +135,7 @@ int main(void)
 
 	  if(isDataAvailable(0) == 1)
 	  {
-		  NRF24_Receive(rxBuffer);
+		  //NRF24_Receive(rxBuffer);
 
 		 /* if(CDC_Transmit_FS((uint8_t *) rxBuffer,strlen(rxBuffer)) == 1)
 		  {
@@ -144,7 +146,35 @@ int main(void)
 			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
 	  }
 
-	  NRF24_ReadAll(&rxBuffer);
+	  if(isDataAvailable(1) == 1)
+	  {
+		  //NRF24_Receive(rxBuffer);
+
+		 /* if(CDC_Transmit_FS((uint8_t *) rxBuffer,strlen(rxBuffer)) == 1)
+		  {
+			  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+		  }*/
+
+		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
+	  }
+
+	  if(isDataAvailable(2) == 1)
+	  {
+		  //NRF24_Receive(rxBuffer);
+
+		 /* if(CDC_Transmit_FS((uint8_t *) rxBuffer,strlen(rxBuffer)) == 1)
+		  {
+			  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+		  }*/
+
+		   	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,1);
+			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,1);
+	  }
+	  //NRF24_ReadAll(&rxBuffer);
+
+
+	  //NRF24_ReadAll(&rxBuffer);
 
 #endif
 

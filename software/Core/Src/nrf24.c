@@ -132,6 +132,7 @@ void nrf24_reset(uint8_t REG)
 {
 	if (REG == STATUS)
 	{
+		HAL_Delay(5);
 		nrf24_WriteReg(STATUS, 0x00);
 	}
 
@@ -197,7 +198,7 @@ void NRF24_Init (void)
 
 	nrf24_WriteReg (RF_CH, 0);  // will be setup during Tx or RX
 
-	nrf24_WriteReg (RF_SETUP, 0x0E);   // Power= 0db, data rate = 2Mbps
+	nrf24_WriteReg (RF_SETUP, 0x0F);   // Power= 0db, data rate = 2Mbps
 
 	// Enable the chip after configuring the device
 	CE_Enable();
@@ -279,7 +280,7 @@ void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 	// select data pipe 2
 	//uint8_t en_rxaddr = nrf24_ReadReg(EN_RXADDR);
 	//en_rxaddr = en_rxaddr | (1<<2);
-	uint8_t en_rxaddr = 0x3F;
+	uint8_t en_rxaddr = 0x03;
 	nrf24_WriteReg (EN_RXADDR, en_rxaddr);
 
 	/* We must write the address for Data Pipe 1, if we want to use any pipe from 2 to 5
@@ -292,17 +293,21 @@ void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 	 * Pipe 3 ADDR = 0xAABBCCDD33
 	 *
 	 */
-	nrf24_WriteRegMulti(RX_ADDR_P1, Address, 5);  // Write the Pipe1 address
-	nrf24_WriteReg(RX_ADDR_P2, 0xEE);  // Write the Pipe2 LSB address
+	nrf24_WriteRegMulti(RX_ADDR_P0, Address, 5);  // Write the Pipe1 address
+
+	//nrf24_WriteReg(RX_ADDR_P1, 0xEF);  // Write the Pipe2 LSB address
+
+	nrf24_WriteReg (RX_PW_P0, 32);   // 32 bit payload size for pipe 2
 
 	nrf24_WriteReg (RX_PW_P1, 32);   // 32 bit payload size for pipe 2
 
-	nrf24_WriteReg (RX_PW_P2, 32);   // 32 bit payload size for pipe 2
+
+	//nrf24_WriteReg (RX_PW_P2, 32);   // 32 bit payload size for pipe 2
 
 
 	// power up the device in Rx mode
 	//uint8_t config = nrf24_ReadReg(CONFIG);
-	uint8_t config = (0xF3);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
+	uint8_t config = (0x03);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
 
 	//config = config | (1<<1) | (1<<0);
 	nrf24_WriteReg (CONFIG, config);
@@ -370,7 +375,7 @@ void NRF24_ReadAll (uint8_t *data)
 	*(data+22) = nrf24_ReadReg(RX_ADDR_P4);
 	*(data+23) = nrf24_ReadReg(RX_ADDR_P5);
 
-	nrf24_ReadReg_Multi(RX_ADDR_P0, (data+24), 5);
+	nrf24_ReadReg_Multi(TX_ADDR, (data+24), 5);
 
 	for (int i=29; i<38; i++)
 	{

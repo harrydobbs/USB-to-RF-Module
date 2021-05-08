@@ -8,10 +8,10 @@ nrf24.c:88:9:nrf24_ReadReg	24	static
 nrf24.c:106:6:nrf24_ReadReg_Multi	24	static
 nrf24.c:120:6:nrfsendCmd	16	static
 nrf24.c:131:6:nrf24_reset	40	static
-nrf24.c:179:6:NRF24_Init	8	static
-nrf24.c:210:6:NRF24_TxMode	24	static
-nrf24.c:233:9:NRF24_Transmit	24	static
-nrf24.c:270:6:NRF24_RxMode	24	static
-nrf24.c:315:9:isDataAvailable	24	static
-nrf24.c:331:6:NRF24_Receive	24	static
-nrf24.c:357:6:NRF24_ReadAll	32	static
+nrf24.c:180:6:NRF24_Init	8	static
+nrf24.c:211:6:NRF24_TxMode	24	static
+nrf24.c:234:9:NRF24_Transmit	24	static
+nrf24.c:271:6:NRF24_RxMode	24	static
+nrf24.c:320:9:isDataAvailable	24	static
+nrf24.c:336:6:NRF24_Receive	24	static
+nrf24.c:362:6:NRF24_ReadAll	32	static
