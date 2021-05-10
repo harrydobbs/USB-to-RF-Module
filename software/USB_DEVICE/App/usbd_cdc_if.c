@@ -21,8 +21,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_cdc_if.h"
-#include "main.h"
-#include "nrf24.h"
 
 /* USER CODE BEGIN INCLUDE */
 uint8_t rxBuffer[64];
@@ -270,7 +268,7 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 
 
   for(i=0;i<*Len;i++){
-	  rxBuffer[i] = Buf[i];
+	  //rxBuffer[i] = Buf[i];
   }
 
 /*

@@ -91,6 +91,7 @@ uint8_t nrf24_ReadReg (uint8_t Reg)
 
 	// Pull the CS Pin LOW to select the device
 	CS_Select();
+	//HAL_Delay(50);
 
 	HAL_SPI_Transmit(NRF24_SPI, &Reg, 1, 100);
 	HAL_SPI_Receive(NRF24_SPI, &data, 1, 100);
@@ -148,7 +149,7 @@ void nrf24_reset(uint8_t REG)
 	nrf24_WriteReg(SETUP_AW, 0x03);
 	nrf24_WriteReg(SETUP_RETR, 0x03);
 	nrf24_WriteReg(RF_CH, 0x02);
-	nrf24_WriteReg(RF_SETUP, 0x0E);
+	nrf24_WriteReg(RF_SETUP, 0x0F);
 	nrf24_WriteReg(STATUS, 0x00);
 	nrf24_WriteReg(OBSERVE_TX, 0x00);
 	nrf24_WriteReg(CD, 0x00);
@@ -198,7 +199,7 @@ void NRF24_Init (void)
 
 	nrf24_WriteReg (RF_CH, 0);  // will be setup during Tx or RX
 
-	nrf24_WriteReg (RF_SETUP, 0x0F);   // Power= 0db, data rate = 2Mbps
+	nrf24_WriteReg (RF_SETUP, 0x09);   // Power= 0db, data rate = 2Mbps
 
 	// Enable the chip after configuring the device
 	CE_Enable();
@@ -275,6 +276,9 @@ void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 
 	nrf24_reset (STATUS);
 
+	nrf24_WriteReg (RF_SETUP, 0x08);   // Power= 0db, data rate = 2Mbps
+
+
 	nrf24_WriteReg (RF_CH, channel);  // select the channel
 
 	// select data pipe 2
@@ -293,13 +297,13 @@ void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 	 * Pipe 3 ADDR = 0xAABBCCDD33
 	 *
 	 */
-	nrf24_WriteRegMulti(RX_ADDR_P0, Address, 5);  // Write the Pipe1 address
+	nrf24_WriteRegMulti(RX_ADDR_P1, Address, 5);  // Write the Pipe1 address
 
 	//nrf24_WriteReg(RX_ADDR_P1, 0xEF);  // Write the Pipe2 LSB address
 
-	nrf24_WriteReg (RX_PW_P0, 32);   // 32 bit payload size for pipe 2
+	nrf24_WriteReg (RX_PW_P0, 0);   // 32 bit payload size for pipe 2
 
-	nrf24_WriteReg (RX_PW_P1, 32);   // 32 bit payload size for pipe 2
+	nrf24_WriteReg (RX_PW_P1, 5);   // 32 bit payload size for pipe 2
 
 
 	//nrf24_WriteReg (RX_PW_P2, 32);   // 32 bit payload size for pipe 2
@@ -307,7 +311,7 @@ void NRF24_RxMode (uint8_t *Address, uint8_t channel)
 
 	// power up the device in Rx mode
 	//uint8_t config = nrf24_ReadReg(CONFIG);
-	uint8_t config = (0x03);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
+	uint8_t config = (0xF3);    // write 0 in the PRIM_RX, and 1 in the PWR_UP, and all other bits are masked
 
 	//config = config | (1<<1) | (1<<0);
 	nrf24_WriteReg (CONFIG, config);
@@ -345,7 +349,7 @@ void NRF24_Receive (uint8_t *data)
 	HAL_SPI_Transmit(NRF24_SPI, &cmdtosend, 1, 100);
 
 	// Receive the payload
-	HAL_SPI_Receive(NRF24_SPI, data, 32, 1000);
+	HAL_SPI_Receive(NRF24_SPI, data, 5, 1000);
 
 	// Unselect the device
 	CS_UnSelect();

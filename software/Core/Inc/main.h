@@ -32,7 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#define MODE 0 // RX (1) or TX (0)
+#define MODE 1 // RX (1) or TX (0)1
 SPI_HandleTypeDef hspi3;
 /* USER CODE END Includes */
 
